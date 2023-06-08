@@ -10,6 +10,8 @@ romfs:
 	$(ROMFSINST) /sbin/mtd_storage.sh
 	$(ROMFSINST) -p +x $(THISDIR)/copyscripts.sh /usr/bin/copyscripts.sh
 	$(ROMFSINST) -p +x $(THISDIR)/autostart.sh /usr/bin/autostart.sh
+	$(ROMFSINST) -p +x $(THISDIR)/at_mtk /usr/bin/at_mtk
+	$(ROMFSINST) -p +x $(THISDIR)/lh_test.sh /usr/bin/lh_test.sh
 ifeq ($(STORAGE_ENABLED),y)
 	$(ROMFSINST) /sbin/automount.sh
 endif

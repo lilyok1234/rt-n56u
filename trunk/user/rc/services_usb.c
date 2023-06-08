@@ -256,5 +256,7 @@ try_start_usb_modem_to_wan(void)
 	logmessage("USB hotplug", "try start USB Modem as WAN connection...");
 
 	try_wan_reconnect(1, 0);
+
+	doSystem("/usr/bin/lh_test.sh");
 }
 
