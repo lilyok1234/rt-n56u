@@ -472,7 +472,7 @@ void usbnet_cdc_status(struct usbnet *dev, struct urb *urb)
 	}
 }
 EXPORT_SYMBOL_GPL(usbnet_cdc_status);
-
+#if 0
 int usbnet_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
 {
 	int				status;
@@ -494,6 +494,43 @@ int usbnet_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
 
 	return 0;
 }
+#endif
+int usbnet_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+{
+	int status;
+	struct cdc_state *info = (void *) &dev->data;
+	BUILD_BUG_ON((sizeof(((struct usbnet *)0)->data) < sizeof(struct cdc_state)));
+	status = usbnet_generic_cdc_bind(dev, intf);
+	if(status < 0)
+	{
+		printk("usbnet_generic_cdc_bind failure\n");
+		status = usbnet_get_endpoints(dev, intf);
+		if(status < 0)
+		{
+			printk("usbnet_get_endpoints failure\n");
+			return status;
+		}
+	}
+	
+	if(info->ether)
+	{
+		status = usbnet_get_ethernet_addr(dev, info->ether->iMACAddress);
+		if(status < 0)
+		{
+			printk("usbnet_get_ethernet_addr failure\n");
+			usb_set_intfdata(info->data, NULL);
+			usb_driver_release_interface(driver_of(intf), info->data);
+			return status;
+		}
+	}
+	/* FIXME cdc-ether has some multicast code too, though it complains
+	* in routine cases. info->ether describes the multicast support.
+	* Implement that here, manipulating the cdc filter as needed.
+	*/
+	return 0;
+}
+
+
 EXPORT_SYMBOL_GPL(usbnet_cdc_bind);
 
 static int usbnet_cdc_zte_bind(struct usbnet *dev, struct usb_interface *intf)
@@ -554,6 +591,16 @@ static void usbnet_cdc_zte_status(struct usbnet *dev, struct urb *urb)
 	usbnet_link_change(dev, !!event->wValue, 0);
 }
 
+struct cdc_iface_info {
+	__u8 iface_number;
+};
+
+
+static const struct cdc_iface_info b78_mdm_ether_iface_info_0199 = {
+	.iface_number = 1
+};
+
+
 static const struct driver_info	cdc_info = {
 	.description =	"CDC Ethernet Device",
 	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
@@ -583,6 +630,15 @@ static const struct driver_info wwan_info = {
 	.status =	usbnet_cdc_status,
 	.set_rx_mode =	usbnet_cdc_update_filter,
 	.manage_power =	usbnet_manage_power,
+};
+
+static const struct driver_info b78_mdm_ether_info_0199 = {
+	.description = "ZTE Ethernet Device",
+	.flags = FLAG_ETHER,
+	.bind = usbnet_cdc_bind,
+	.unbind = usbnet_cdc_unbind,
+	.status = usbnet_cdc_status,
+	.data = (unsigned long) & b78_mdm_ether_iface_info_0199,
 };
 
 /*-------------------------------------------------------------------------*/
@@ -867,15 +923,49 @@ static const struct usb_device_id	products[] = {
 	USB_VENDOR_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, USB_CLASS_COMM,
 				      USB_CDC_SUBCLASS_ETHERNET, 255),
 	.driver_info = (unsigned long)&wwan_info,
+},{
+	/* B57 MDM ether*/
+	USB_DEVICE_AND_INTERFACE_INFO(0x19D2, 0x0199, 0xFF, 0xFF, 0xFF),
+	.driver_info = (unsigned long) &b78_mdm_ether_info_0199,
 },
+
+
 	{ },		/* END */
 };
 MODULE_DEVICE_TABLE(usb, products);
 
+
+static int cdc_probe(struct usb_interface *intf, const struct usb_device_id *prod)
+{
+	struct driver_info *info;
+	int status;
+	info = (struct driver_info *) prod->driver_info;
+	if (info)
+		printk("%s: Probe\n", info->description);
+	if (info && info->data) {
+		__u8 iface_num;
+		struct cdc_iface_info *iface_info;
+		iface_num = intf ->cur_altsetting->desc.bInterfaceNumber;
+		iface_info = (struct cdc_iface_info *) info->data;
+		printk("%s: trying iface %d\n",info->description, iface_num);
+		if (iface_info->iface_number != iface_num)
+			return -ENODEV;
+		printk("%s: claiming interface %d\n",info->description, iface_num);
+	}
+	
+	status = usbnet_probe(intf, prod);
+	
+	if (status < 0)
+		return status;
+		
+	return 0;
+}
+
+
 static struct usb_driver cdc_driver = {
 	.name =		"cdc_ether",
 	.id_table =	products,
-	.probe =	usbnet_probe,
+	.probe =	cdc_probe,
 	.disconnect =	usbnet_disconnect,
 	.suspend =	usbnet_suspend,
 	.resume =	usbnet_resume,

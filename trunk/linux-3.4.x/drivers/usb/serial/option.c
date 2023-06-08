@@ -374,6 +374,9 @@ static void option_instat_callback(struct urb *urb);
 #define PIRELLI_PRODUCT_1011			0x1011
 #define PIRELLI_PRODUCT_1012			0x1012
 
+#define BA_VENDOR_ID 0x19d2
+#define BA_PRODUCT_B78 0x0199
+
 /* Airplus products */
 #define AIRPLUS_VENDOR_ID			0x1011
 #define AIRPLUS_PRODUCT_MCD650			0x3198
@@ -2091,6 +2094,7 @@ static const struct usb_device_id option_ids[] = {
 	{ USB_DEVICE_AND_INTERFACE_INFO(WETELECOM_VENDOR_ID, WETELECOM_PRODUCT_WMD200, 0xff, 0xff, 0xff) },
 	{ USB_DEVICE_AND_INTERFACE_INFO(WETELECOM_VENDOR_ID, WETELECOM_PRODUCT_6802, 0xff, 0xff, 0xff) },
 	{ USB_DEVICE_AND_INTERFACE_INFO(WETELECOM_VENDOR_ID, WETELECOM_PRODUCT_WMD300, 0xff, 0xff, 0xff) },
+	{ USB_DEVICE_AND_INTERFACE_INFO(BA_VENDOR_ID,BA_PRODUCT_B78, 0xff,0xff, 0xff) },/* B57 products */
 	{ } /* Terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, option_ids);
@@ -2205,6 +2209,20 @@ static int option_probe(struct usb_serial *serial,
 		dev_desc->idProduct == cpu_to_le16(SAMSUNG_PRODUCT_GT_B3730) &&
 		iface_desc->bInterfaceClass != USB_CLASS_CDC_DATA)
 		return -ENODEV;
+
+	printk("serial option_probe 0x%X - 0x%X - %d\n",
+                serial->dev->descriptor.idVendor,
+                serial->dev->descriptor.idProduct,
+                serial->interface->cur_altsetting->desc.bInterfaceNumber);
+	if (serial->dev->descriptor.idVendor == BA_VENDOR_ID &&
+			serial->dev->descriptor.idProduct == BA_PRODUCT_B78 &&
+			serial->interface->cur_altsetting->desc.bInterfaceNumber == 0x1){
+		printk("serial option_probe 0x%X - 0x%X - %d\n",
+		serial->dev->descriptor.idVendor,
+		serial->dev->descriptor.idProduct,
+		serial->interface->cur_altsetting->desc.bInterfaceNumber);
+		return -ENODEV;
+	}
 
 	data = kzalloc(sizeof(struct usb_wwan_intf_private), GFP_KERNEL);
 	if (!data)
