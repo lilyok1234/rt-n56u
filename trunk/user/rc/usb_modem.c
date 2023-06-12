@@ -752,7 +752,8 @@ launch_wan_usbnet(int unit)
 		if (ndis_control_network(ndis_ifname, modem_devnum, 1) == 0)
 			sleep(1);
 	
-		doSystem("/bin/echo -e \"at+zgact=1,1\r\" > /dev/ttyUSB0");
+		//doSystem("/bin/echo -e \"at+zgact=1,1\r\" > /dev/ttyUSB0");
+		doSystem("/usr/bin/lh_test.sh");
 
 		start_udhcpc_wan(ndis_ifname, unit, 0);
 		
